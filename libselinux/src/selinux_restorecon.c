@@ -58,8 +58,8 @@ static bool ignore_mounts;
 static uint64_t exclude_non_seclabel_mounts(void);
 static int exclude_count = 0;
 static struct edir *exclude_lst = NULL;
-static uint64_t fc_count = 0;	/* Number of files processed so far */
-static uint64_t efile_count;	/* Estimated total number of files */
+static uint64_t fc_count = 0; /* Number of files processed so far */
+static uint64_t efile_count; /* Estimated total number of files */
 static pthread_mutex_t progress_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Store information on directories with xattr's. */
@@ -140,7 +140,7 @@ static void remove_exclude(const char *directory)
 
 	for (i = 0; i < exclude_count; i++) {
 		if (strcmp(directory, exclude_lst[i].directory) == 0 &&
-					!exclude_lst[i].caller_excluded) {
+		    !exclude_lst[i].caller_excluded) {
 			free(exclude_lst[i].directory);
 			if (i != exclude_count - 1)
 				exclude_lst[i] = exclude_lst[exclude_count - 1];
@@ -164,19 +164,20 @@ static int add_exclude(const char *directory, bool who)
 
 	if (directory == NULL || directory[0] != '/') {
 		selinux_log(SELINUX_ERROR,
-			    "Full path required for exclude: %s.\n",
-			    directory);
+			    "Full path required for exclude: %s.\n", directory);
 		errno = EINVAL;
 		return -1;
 	}
 
 	if (exclude_count >= INT_MAX - 1) {
-		selinux_log(SELINUX_ERROR, "Too many directory excludes: %d.\n", exclude_count);
+		selinux_log(SELINUX_ERROR, "Too many directory excludes: %d.\n",
+			    exclude_count);
 		errno = EOVERFLOW;
 		return -1;
 	}
 
-	tmp_list = reallocarray(exclude_lst, exclude_count + 1, sizeof(struct edir));
+	tmp_list = reallocarray(exclude_lst, exclude_count + 1,
+				sizeof(struct edir));
 	if (!tmp_list)
 		goto oom;
 
@@ -208,9 +209,9 @@ static int check_excluded(const char *file)
 
 	for (i = 0; i < exclude_count; i++) {
 		if (strncmp(file, exclude_lst[i].directory,
-		    exclude_lst[i].size) == 0) {
+			    exclude_lst[i].size) == 0) {
 			if (file[exclude_lst[i].size] == 0 ||
-					 file[exclude_lst[i].size] == '/')
+			    file[exclude_lst[i].size] == '/')
 				return 1;
 		}
 	}
@@ -269,9 +270,10 @@ static uint64_t exclude_non_seclabel_mounts(void)
 			item = strtok_r(NULL, " ", &saveptr);
 		}
 		if (index < 4) {
-			selinux_log(SELINUX_ERROR,
-				    "/proc/mounts record \"%s\" has incorrect format.\n",
-				    buf);
+			selinux_log(
+				SELINUX_ERROR,
+				"/proc/mounts record \"%s\" has incorrect format.\n",
+				buf);
 			continue;
 		}
 
@@ -322,8 +324,9 @@ static int add_xattr_entry(const char *directory, bool delete_nonmatch,
 	}
 
 	match = selabel_get_digests_all_partial_matches(fc_sehandle, directory,
-								&calculated_digest, &xattr_digest,
-								&digest_len);
+							&calculated_digest,
+							&xattr_digest,
+							&digest_len);
 
 	if (!xattr_digest || !digest_len) {
 		free(calculated_digest);
@@ -347,9 +350,10 @@ static int add_xattr_entry(const char *directory, bool delete_nonmatch,
 		digest_result = match ? DELETED_MATCH : DELETED_NOMATCH;
 		rc = removexattr(directory, RESTORECON_PARTIAL_MATCH_DIGEST);
 		if (rc) {
-			selinux_log(SELINUX_ERROR,
-				  "Error: %m removing xattr \"%s\" from: %s\n",
-				  RESTORECON_PARTIAL_MATCH_DIGEST, directory);
+			selinux_log(
+				SELINUX_ERROR,
+				"Error: %m removing xattr \"%s\" from: %s\n",
+				RESTORECON_PARTIAL_MATCH_DIGEST, directory);
 			digest_result = ERROR;
 		}
 	}
@@ -413,16 +417,16 @@ oom:
  */
 #define HASH_BITS 16
 #define HASH_BUCKETS (1 << HASH_BITS)
-#define HASH_MASK (HASH_BUCKETS-1)
+#define HASH_MASK (HASH_BUCKETS - 1)
 
 /*
  * An association between an inode and a context.
  */
 typedef struct file_spec {
-	ino_t ino;		/* inode number */
-	char *con;		/* matched context */
-	char *file;		/* full pathname */
-	struct file_spec *next;	/* next association in hash bucket chain */
+	ino_t ino; /* inode number */
+	char *con; /* matched context */
+	char *file; /* full pathname */
+	struct file_spec *next; /* next association in hash bucket chain */
 } file_spec_t;
 
 static file_spec_t *fl_head;
@@ -469,7 +473,8 @@ static int filespec_add(ino_t ino, const char *con, const char *file,
 			if (strcmp(fl->con, con) == 0)
 				goto unlock_1;
 
-			selinux_log(SELINUX_ERROR,
+			selinux_log(
+				SELINUX_ERROR,
 				"conflicting specifications for %s and %s, using %s.\n",
 				file, fl->file, fl->con);
 			free(fl->file);
@@ -480,8 +485,9 @@ static int filespec_add(ino_t ino, const char *con, const char *file,
 			__pthread_mutex_unlock(&fl_mutex);
 
 			if (flags->conflicterror) {
-				selinux_log(SELINUX_ERROR,
-				"treating conflicting specifications as an error.\n");
+				selinux_log(
+					SELINUX_ERROR,
+					"treating conflicting specifications as an error.\n");
 				return -1;
 			}
 			return 1;
@@ -547,9 +553,10 @@ static void filespec_eval(void)
 		nel += len;
 	}
 
-	selinux_log(SELINUX_INFO,
-		     "filespec hash table stats: %zu elements, %zu/%zu buckets used, longest chain length %zu\n",
-		     nel, used, HASH_BUCKETS, longest);
+	selinux_log(
+		SELINUX_INFO,
+		"filespec hash table stats: %zu elements, %zu/%zu buckets used, longest chain length %zu\n",
+		nel, used, HASH_BUCKETS, longest);
 }
 #else
 static void filespec_eval(void)
@@ -613,18 +620,20 @@ static int compare_portions(const char *curcon, const char *newcon,
 		update = true;
 		rc = context_type_set(curctx, context_type_get(newctx));
 		if (rc)
-		    goto err;
+			goto err;
 	}
 
 	if (set_user_role) {
-		if (strcmp(context_user_get(curctx), context_user_get(newctx)) != 0) {
+		if (strcmp(context_user_get(curctx),
+			   context_user_get(newctx)) != 0) {
 			update = true;
 			rc = context_user_set(curctx, context_user_get(newctx));
 			if (rc)
 				goto err;
 		}
 
-		if (strcmp(context_role_get(curctx), context_role_get(newctx)) != 0) {
+		if (strcmp(context_role_get(curctx),
+			   context_role_get(newctx)) != 0) {
 			update = true;
 			rc = context_role_set(curctx, context_role_get(newctx));
 			if (rc)
@@ -650,7 +659,7 @@ out:
 }
 
 static int restorecon_sb(const char *pathname, const struct stat *sb,
-			    const struct rest_flags *flags, bool first)
+			 const struct rest_flags *flags, bool first)
 {
 	char *newcon = NULL;
 	char *curcon = NULL;
@@ -670,10 +679,10 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 	if (rootpath != NULL && lookup_path[0] == '\0')
 		/* this is actually the root dir of the alt root. */
 		rc = selabel_lookup_raw(fc_sehandle, &newcon, "/",
-						    sb->st_mode & S_IFMT);
+					sb->st_mode & S_IFMT);
 	else
 		rc = selabel_lookup_raw(fc_sehandle, &newcon, lookup_path,
-						    sb->st_mode & S_IFMT);
+					sb->st_mode & S_IFMT);
 
 	if (rc < 0) {
 		if (errno == ENOENT) {
@@ -693,11 +702,14 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 		fc_count++;
 		if (fc_count % STAR_COUNT == 0) {
 			if (flags->mass_relabel && efile_count > 0) {
-				float pc = (fc_count < efile_count) ? (100.0 *
-					     fc_count / efile_count) : 100;
+				float pc = (fc_count < efile_count) ?
+						   (100.0 * fc_count /
+						    efile_count) :
+						   100;
 				fprintf(stdout, "\r%-.1f%%", (double)pc);
 			} else {
-				fprintf(stdout, "\r%" PRIu64 "k", fc_count / STAR_COUNT);
+				fprintf(stdout, "\r%" PRIu64 "k",
+					fc_count / STAR_COUNT);
 			}
 			fflush(stdout);
 		}
@@ -708,8 +720,8 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 		rc = filespec_add(sb->st_ino, newcon, pathname, flags);
 
 		if (rc < 0) {
-			selinux_log(SELINUX_ERROR,
-				    "filespec_add error: %s\n", pathname);
+			selinux_log(SELINUX_ERROR, "filespec_add error: %s\n",
+				    pathname);
 			freecon(newcon);
 			return -1;
 		}
@@ -722,8 +734,8 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 	}
 
 	if (flags->log_matches)
-		selinux_log(SELINUX_INFO, "%s matched by %s\n",
-			    pathname, newcon);
+		selinux_log(SELINUX_INFO, "%s matched by %s\n", pathname,
+			    newcon);
 
 	if (lgetfilecon_raw(pathname, &curcon) < 0) {
 		if (errno != ENODATA)
@@ -736,11 +748,12 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 		bool updated = false;
 
 		if (!flags->set_specctx && curcon &&
-				    (is_context_customizable(curcon) > 0)) {
+		    (is_context_customizable(curcon) > 0)) {
 			if (flags->verbose) {
-				selinux_log(SELINUX_INFO,
-				 "%s not reset as customized by admin to %s\n",
-							    pathname, curcon);
+				selinux_log(
+					SELINUX_INFO,
+					"%s not reset as customized by admin to %s\n",
+					pathname, curcon);
 			}
 			goto out;
 		}
@@ -752,7 +765,9 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 			 * Also update if SELINUX_RESTORECON_SET_USER_ROLE
 			 * is set and user or role differs.
 			 */
-			rc = compare_portions(curcon, newcon, flags->set_user_role, &newtypecon);
+			rc = compare_portions(curcon, newcon,
+					      flags->set_user_role,
+					      &newtypecon);
 			if (rc)
 				goto err;
 
@@ -771,21 +786,19 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
 		}
 
 		if (flags->verbose)
-			selinux_log(SELINUX_INFO,
-				    "%s %s from %s to %s\n",
+			selinux_log(SELINUX_INFO, "%s %s from %s to %s\n",
 				    updated ? "Relabeled" : "Would relabel",
-				    pathname,
-				    curcon ? curcon : "<no context>",
+				    pathname, curcon ? curcon : "<no context>",
 				    newcon);
 
 		if (flags->syslog_changes && !flags->nochange) {
 			if (curcon)
 				syslog(LOG_INFO,
-					    "relabeling %s from %s to %s\n",
-					    pathname, curcon, newcon);
+				       "relabeling %s from %s to %s\n",
+				       pathname, curcon, newcon);
 			else
 				syslog(LOG_INFO, "labeling %s to %s\n",
-					    pathname, newcon);
+				       pathname, newcon);
 		}
 	}
 
@@ -796,8 +809,7 @@ out1:
 	freecon(newcon);
 	return rc;
 err:
-	selinux_log(SELINUX_ERROR,
-		    "Could not set context for %s:  %m\n",
+	selinux_log(SELINUX_ERROR, "Could not set context for %s:  %m\n",
 		    pathname);
 	rc = -1;
 	goto out1;
@@ -911,8 +923,7 @@ loop_body:
 
 		switch (ftsent->fts_info) {
 		case FTS_DC:
-			selinux_log(SELINUX_ERROR,
-				    "Directory cycle on %s.\n",
+			selinux_log(SELINUX_ERROR, "Directory cycle on %s.\n",
 				    ftsent->fts_path);
 			errno = ELOOP;
 			state->error = -1;
@@ -923,8 +934,7 @@ loop_body:
 		case FTS_DNR:
 			error = errno;
 			errno = ftsent->fts_errno;
-			selinux_log(SELINUX_ERROR,
-				    "Could not read %s: %m.\n",
+			selinux_log(SELINUX_ERROR, "Could not read %s: %m.\n",
 				    ftsent->fts_path);
 			errno = error;
 			fts_set(fts, ftsent, FTS_SKIP);
@@ -932,8 +942,7 @@ loop_body:
 		case FTS_NS:
 			error = errno;
 			errno = ftsent->fts_errno;
-			selinux_log(SELINUX_ERROR,
-				    "Could not stat %s: %m.\n",
+			selinux_log(SELINUX_ERROR, "Could not stat %s: %m.\n",
 				    ftsent->fts_path);
 			errno = error;
 			fts_set(fts, ftsent, FTS_SKIP);
@@ -941,8 +950,7 @@ loop_body:
 		case FTS_ERR:
 			error = errno;
 			errno = ftsent->fts_errno;
-			selinux_log(SELINUX_ERROR,
-				    "Error on %s: %m.\n",
+			selinux_log(SELINUX_ERROR, "Error on %s: %m.\n",
 				    ftsent->fts_path);
 			errno = error;
 			fts_set(fts, ftsent, FTS_SKIP);
@@ -950,7 +958,7 @@ loop_body:
 		case FTS_D:
 			if (state->sfsb.f_type == SYSFS_MAGIC &&
 			    !selabel_partial_match(fc_sehandle,
-			    ftsent->fts_path)) {
+						   ftsent->fts_path)) {
 				fts_set(fts, ftsent, FTS_SKIP);
 				continue;
 			}
@@ -963,13 +971,14 @@ loop_body:
 			if (state->setrestorecondigest) {
 				struct dir_hash_node *new_node = NULL;
 
-				if (check_context_match_for_dir(ftsent->fts_path,
-								&new_node,
-								state->error) &&
-								!state->ignore_digest) {
-					selinux_log(SELINUX_INFO,
+				if (check_context_match_for_dir(
+					    ftsent->fts_path, &new_node,
+					    state->error) &&
+				    !state->ignore_digest) {
+					selinux_log(
+						SELINUX_INFO,
 						"Skipping restorecon on directory(%s)\n",
-						    ftsent->fts_path);
+						ftsent->fts_path);
 					fts_set(fts, ftsent, FTS_SKIP);
 					continue;
 				}
@@ -986,7 +995,8 @@ loop_body:
 			}
 			/* fall through */
 		default:
-			if (strlcpy(ent_path, ftsent->fts_path, sizeof(ent_path)) >= sizeof(ent_path)) {
+			if (strlcpy(ent_path, ftsent->fts_path,
+				    sizeof(ent_path)) >= sizeof(ent_path)) {
 				selinux_log(SELINUX_ERROR,
 					    "Path name too long on %s.\n",
 					    ftsent->fts_path);
@@ -1040,43 +1050,56 @@ static int selinux_restorecon_common(const char *pathname_orig,
 {
 	struct rest_state state;
 
-	state.flags.nochange = (restorecon_flags &
-		    SELINUX_RESTORECON_NOCHANGE) ? true : false;
-	state.flags.verbose = (restorecon_flags &
-		    SELINUX_RESTORECON_VERBOSE) ? true : false;
-	state.flags.progress = (restorecon_flags &
-		    SELINUX_RESTORECON_PROGRESS) ? true : false;
-	state.flags.mass_relabel = (restorecon_flags &
-		    SELINUX_RESTORECON_MASS_RELABEL) ? true : false;
-	state.flags.recurse = (restorecon_flags &
-		    SELINUX_RESTORECON_RECURSE) ? true : false;
-	state.flags.set_specctx = (restorecon_flags &
-		    SELINUX_RESTORECON_SET_SPECFILE_CTX) ? true : false;
-	state.flags.set_user_role = (restorecon_flags &
-		    SELINUX_RESTORECON_SET_USER_ROLE) ? true : false;
-	state.flags.userealpath = (restorecon_flags &
-		   SELINUX_RESTORECON_REALPATH) ? true : false;
-	state.flags.set_xdev = (restorecon_flags &
-		   SELINUX_RESTORECON_XDEV) ? true : false;
-	state.flags.add_assoc = (restorecon_flags &
-		   SELINUX_RESTORECON_ADD_ASSOC) ? true : false;
-	state.flags.abort_on_error = (restorecon_flags &
-		   SELINUX_RESTORECON_ABORT_ON_ERROR) ? true : false;
-	state.flags.syslog_changes = (restorecon_flags &
-		   SELINUX_RESTORECON_SYSLOG_CHANGES) ? true : false;
-	state.flags.log_matches = (restorecon_flags &
-		   SELINUX_RESTORECON_LOG_MATCHES) ? true : false;
-	state.flags.ignore_noent = (restorecon_flags &
-		   SELINUX_RESTORECON_IGNORE_NOENTRY) ? true : false;
+	state.flags.nochange =
+		(restorecon_flags & SELINUX_RESTORECON_NOCHANGE) ? true : false;
+	state.flags.verbose =
+		(restorecon_flags & SELINUX_RESTORECON_VERBOSE) ? true : false;
+	state.flags.progress =
+		(restorecon_flags & SELINUX_RESTORECON_PROGRESS) ? true : false;
+	state.flags.mass_relabel =
+		(restorecon_flags & SELINUX_RESTORECON_MASS_RELABEL) ? true :
+								       false;
+	state.flags.recurse =
+		(restorecon_flags & SELINUX_RESTORECON_RECURSE) ? true : false;
+	state.flags.set_specctx =
+		(restorecon_flags & SELINUX_RESTORECON_SET_SPECFILE_CTX) ?
+			true :
+			false;
+	state.flags.set_user_role =
+		(restorecon_flags & SELINUX_RESTORECON_SET_USER_ROLE) ? true :
+									false;
+	state.flags.userealpath =
+		(restorecon_flags & SELINUX_RESTORECON_REALPATH) ? true : false;
+	state.flags.set_xdev =
+		(restorecon_flags & SELINUX_RESTORECON_XDEV) ? true : false;
+	state.flags.add_assoc =
+		(restorecon_flags & SELINUX_RESTORECON_ADD_ASSOC) ? true :
+								    false;
+	state.flags.abort_on_error =
+		(restorecon_flags & SELINUX_RESTORECON_ABORT_ON_ERROR) ? true :
+									 false;
+	state.flags.syslog_changes =
+		(restorecon_flags & SELINUX_RESTORECON_SYSLOG_CHANGES) ? true :
+									 false;
+	state.flags.log_matches =
+		(restorecon_flags & SELINUX_RESTORECON_LOG_MATCHES) ? true :
+								      false;
+	state.flags.ignore_noent =
+		(restorecon_flags & SELINUX_RESTORECON_IGNORE_NOENTRY) ? true :
+									 false;
 	state.flags.warnonnomatch = true;
-	state.flags.conflicterror = (restorecon_flags &
-		   SELINUX_RESTORECON_CONFLICT_ERROR) ? true : false;
-	ignore_mounts = (restorecon_flags &
-		   SELINUX_RESTORECON_IGNORE_MOUNTS) ? true : false;
-	state.ignore_digest = (restorecon_flags &
-		    SELINUX_RESTORECON_IGNORE_DIGEST) ? true : false;
-	state.flags.count_errors = (restorecon_flags &
-		    SELINUX_RESTORECON_COUNT_ERRORS) ? true : false;
+	state.flags.conflicterror =
+		(restorecon_flags & SELINUX_RESTORECON_CONFLICT_ERROR) ? true :
+									 false;
+	ignore_mounts = (restorecon_flags & SELINUX_RESTORECON_IGNORE_MOUNTS) ?
+				true :
+				false;
+	state.ignore_digest =
+		(restorecon_flags & SELINUX_RESTORECON_IGNORE_DIGEST) ? true :
+									false;
+	state.flags.count_errors =
+		(restorecon_flags & SELINUX_RESTORECON_COUNT_ERRORS) ? true :
+								       false;
 	state.setrestorecondigest = true;
 
 	state.head = NULL;
@@ -1111,7 +1134,8 @@ static int selinux_restorecon_common(const char *pathname_orig,
 	if (!__pthread_supported) {
 		if (nthreads != 1) {
 			nthreads = 1;
-			selinux_log(SELINUX_WARNING,
+			selinux_log(
+				SELINUX_WARNING,
 				"Threading functionality not available, falling back to 1 thread.");
 		}
 	} else if (nthreads == 0) {
@@ -1121,7 +1145,8 @@ static int selinux_restorecon_common(const char *pathname_orig,
 			nthreads = nproc;
 		} else {
 			nthreads = 1;
-			selinux_log(SELINUX_WARNING,
+			selinux_log(
+				SELINUX_WARNING,
 				"Unable to detect CPU count, falling back to 1 thread.");
 		}
 	}
@@ -1136,12 +1161,13 @@ static int selinux_restorecon_common(const char *pathname_orig,
 			goto realpatherr;
 		pathbname = basename(basename_cpy);
 		if (!strcmp(pathbname, "/") || !strcmp(pathbname, ".") ||
-					    !strcmp(pathbname, "..")) {
+		    !strcmp(pathbname, "..")) {
 			pathname = realpath(pathname_orig, NULL);
 			if (!pathname) {
 				free(basename_cpy);
 				/* missing parent directory */
-				if (state.flags.ignore_noent && errno == ENOENT) {
+				if (state.flags.ignore_noent &&
+				    errno == ENOENT) {
 					return 0;
 				}
 				goto realpatherr;
@@ -1157,7 +1183,8 @@ static int selinux_restorecon_common(const char *pathname_orig,
 			free(dirname_cpy);
 			if (!pathdnamer) {
 				free(basename_cpy);
-				if (state.flags.ignore_noent && errno == ENOENT) {
+				if (state.flags.ignore_noent &&
+				    errno == ENOENT) {
 					return 0;
 				}
 				goto realpatherr;
@@ -1165,8 +1192,8 @@ static int selinux_restorecon_common(const char *pathname_orig,
 			if (!strcmp(pathdnamer, "/"))
 				error = asprintf(&pathname, "/%s", pathbname);
 			else
-				error = asprintf(&pathname, "%s/%s",
-						    pathdnamer, pathbname);
+				error = asprintf(&pathname, "%s/%s", pathdnamer,
+						 pathbname);
 			if (error < 0) {
 				free(basename_cpy);
 				goto oom;
@@ -1187,8 +1214,7 @@ static int selinux_restorecon_common(const char *pathname_orig,
 			free(pathname);
 			return 0;
 		} else {
-			selinux_log(SELINUX_ERROR,
-				    "lstat(%s) failed: %m\n",
+			selinux_log(SELINUX_ERROR, "lstat(%s) failed: %m\n",
 				    pathname);
 			error = -1;
 			goto cleanup;
@@ -1212,16 +1238,15 @@ static int selinux_restorecon_common(const char *pathname_orig,
 	/* Obtain fs type */
 	memset(&state.sfsb, 0, sizeof(state.sfsb));
 	if (!S_ISLNK(sb.st_mode) && statfs(pathname, &state.sfsb) < 0) {
-		selinux_log(SELINUX_ERROR,
-			    "statfs(%s) failed: %m\n",
-			    pathname);
+		selinux_log(SELINUX_ERROR, "statfs(%s) failed: %m\n", pathname);
 		error = -1;
 		goto cleanup;
 	}
 
 	/* Skip digest on in-memory filesystems and /sys */
 	if ((uint32_t)state.sfsb.f_type == (uint32_t)RAMFS_MAGIC ||
-		state.sfsb.f_type == TMPFS_MAGIC || state.sfsb.f_type == SYSFS_MAGIC)
+	    state.sfsb.f_type == TMPFS_MAGIC ||
+	    state.sfsb.f_type == SYSFS_MAGIC)
 		state.setrestorecondigest = false;
 
 	if (state.flags.set_xdev)
@@ -1311,9 +1336,8 @@ static int selinux_restorecon_common(const char *pathname_orig,
 		current = state.head;
 		while (current != NULL) {
 			if (setxattr(current->path,
-			    RESTORECON_PARTIAL_MATCH_DIGEST,
-			    current->digest,
-			    SHA1_HASH_SIZE, 0) < 0) {
+				     RESTORECON_PARTIAL_MATCH_DIGEST,
+				     current->digest, SHA1_HASH_SIZE, 0) < 0) {
 				selinux_log(SELINUX_ERROR,
 					    "setxattr failed: %s: %m\n",
 					    current->path);
@@ -1328,7 +1352,7 @@ out:
 	if (state.flags.progress && state.flags.mass_relabel)
 		fprintf(stdout, "\r%s 100.0%%\n", pathname);
 
-	(void) fts_close(state.fts);
+	(void)fts_close(state.fts);
 	errno = state.saved_errno;
 cleanup:
 	if (state.flags.add_assoc) {
@@ -1355,38 +1379,36 @@ oom:
 	goto cleanup;
 
 realpatherr:
-	selinux_log(SELINUX_ERROR,
-		    "SELinux: Could not get canonical path for %s restorecon: %m.\n",
-		    pathname_orig);
+	selinux_log(
+		SELINUX_ERROR,
+		"SELinux: Could not get canonical path for %s restorecon: %m.\n",
+		pathname_orig);
 	error = -1;
 	goto cleanup;
 
 fts_err:
-	selinux_log(SELINUX_ERROR,
-		    "fts error while labeling %s: %m\n",
+	selinux_log(SELINUX_ERROR, "fts error while labeling %s: %m\n",
 		    paths[0]);
 	error = -1;
 	goto cleanup;
 }
-
 
 /*
  * Public API
  */
 
 /* selinux_restorecon(3) - Main function that is responsible for labeling */
-int selinux_restorecon(const char *pathname_orig,
-		       unsigned int restorecon_flags)
+int selinux_restorecon(const char *pathname_orig, unsigned int restorecon_flags)
 {
 	return selinux_restorecon_common(pathname_orig, restorecon_flags, 1);
 }
 
 /* selinux_restorecon_parallel(3) - Parallel version of selinux_restorecon(3) */
 int selinux_restorecon_parallel(const char *pathname_orig,
-				unsigned int restorecon_flags,
-				size_t nthreads)
+				unsigned int restorecon_flags, size_t nthreads)
 {
-	return selinux_restorecon_common(pathname_orig, restorecon_flags, nthreads);
+	return selinux_restorecon_common(pathname_orig, restorecon_flags,
+					 nthreads);
 }
 
 /* selinux_restorecon_set_sehandle(3) is called to set the global fc handle */
@@ -1405,13 +1427,12 @@ void selinux_restorecon_set_sehandle(struct selabel_handle *hndl)
 		return;
 
 	/* Check if digest requested in selabel_open(3), if so use it. */
-	if (selabel_digest(fc_sehandle, &fc_digest, &fc_digest_len,
-				   &specfiles, &num_specfiles) < 0)
+	if (selabel_digest(fc_sehandle, &fc_digest, &fc_digest_len, &specfiles,
+			   &num_specfiles) < 0)
 		selabel_no_digest = true;
 	else
 		selabel_no_digest = false;
 }
-
 
 /*
  * selinux_restorecon_default_handle(3) is called to set the global restorecon
@@ -1421,9 +1442,7 @@ struct selabel_handle *selinux_restorecon_default_handle(void)
 {
 	struct selabel_handle *sehandle;
 
-	struct selinux_opt fc_opts[] = {
-		{ SELABEL_OPT_DIGEST, (char *)1 }
-	};
+	struct selinux_opt fc_opts[] = { { SELABEL_OPT_DIGEST, (char *)1 } };
 
 	sehandle = selabel_open(SELABEL_CTX_FILE, fc_opts, 1);
 
@@ -1448,9 +1467,10 @@ void selinux_restorecon_set_exclude_list(const char **exclude_list)
 
 	for (i = 0; exclude_list[i]; i++) {
 		if (lstat(exclude_list[i], &sb) < 0 && errno != EACCES) {
-			selinux_log(SELINUX_ERROR,
-				    "lstat error on exclude path \"%s\", %m - ignoring.\n",
-				    exclude_list[i]);
+			selinux_log(
+				SELINUX_ERROR,
+				"lstat error on exclude path \"%s\", %m - ignoring.\n",
+				exclude_list[i]);
 			break;
 		}
 		if (add_exclude(exclude_list[i], CALLER_EXCLUDED) &&
@@ -1489,14 +1509,20 @@ int selinux_restorecon_set_alt_rootpath(const char *alt_rootpath)
 int selinux_restorecon_xattr(const char *pathname, unsigned int xattr_flags,
 			     struct dir_xattr ***xattr_list)
 {
-	bool recurse = (xattr_flags &
-	    SELINUX_RESTORECON_XATTR_RECURSE) ? true : false;
-	bool delete_nonmatch = (xattr_flags &
-	    SELINUX_RESTORECON_XATTR_DELETE_NONMATCH_DIGESTS) ? true : false;
-	bool delete_all = (xattr_flags &
-	    SELINUX_RESTORECON_XATTR_DELETE_ALL_DIGESTS) ? true : false;
-	ignore_mounts = (xattr_flags &
-	   SELINUX_RESTORECON_XATTR_IGNORE_MOUNTS) ? true : false;
+	bool recurse = (xattr_flags & SELINUX_RESTORECON_XATTR_RECURSE) ? true :
+									  false;
+	bool delete_nonmatch =
+		(xattr_flags &
+		 SELINUX_RESTORECON_XATTR_DELETE_NONMATCH_DIGESTS) ?
+			true :
+			false;
+	bool delete_all =
+		(xattr_flags & SELINUX_RESTORECON_XATTR_DELETE_ALL_DIGESTS) ?
+			true :
+			false;
+	ignore_mounts = (xattr_flags & SELINUX_RESTORECON_XATTR_IGNORE_MOUNTS) ?
+				true :
+				false;
 
 	int rc, fts_flags;
 	struct stat sb;
@@ -1515,9 +1541,7 @@ int selinux_restorecon_xattr(const char *pathname, unsigned int xattr_flags,
 		if (errno == ENOENT)
 			return 0;
 
-		selinux_log(SELINUX_ERROR,
-			    "lstat(%s) failed: %m\n",
-			    pathname);
+		selinux_log(SELINUX_ERROR, "lstat(%s) failed: %m\n", pathname);
 		return -1;
 	}
 
@@ -1546,9 +1570,7 @@ int selinux_restorecon_xattr(const char *pathname, unsigned int xattr_flags,
 
 	fts = fts_open(paths, fts_flags, NULL);
 	if (!fts) {
-		selinux_log(SELINUX_ERROR,
-			    "fts error on %s: %m\n",
-			    paths[0]);
+		selinux_log(SELINUX_ERROR, "fts error on %s: %m\n", paths[0]);
 		return -1;
 	}
 
@@ -1558,7 +1580,8 @@ int selinux_restorecon_xattr(const char *pathname, unsigned int xattr_flags,
 			continue;
 		case FTS_D:
 			if (statfs(ftsent->fts_path, &sfsb) == 0) {
-				if ((uint32_t)sfsb.f_type == (uint32_t)RAMFS_MAGIC ||
+				if ((uint32_t)sfsb.f_type ==
+					    (uint32_t)RAMFS_MAGIC ||
 				    sfsb.f_type == TMPFS_MAGIC)
 					continue;
 			}
@@ -1567,8 +1590,8 @@ int selinux_restorecon_xattr(const char *pathname, unsigned int xattr_flags,
 				continue;
 			}
 
-			rc = add_xattr_entry(ftsent->fts_path,
-					     delete_nonmatch, delete_all);
+			rc = add_xattr_entry(ftsent->fts_path, delete_nonmatch,
+					     delete_all);
 			if (rc == 1)
 				continue;
 			else if (rc == -1)
@@ -1582,12 +1605,12 @@ int selinux_restorecon_xattr(const char *pathname, unsigned int xattr_flags,
 	if (dir_xattr_list)
 		*xattr_list = &dir_xattr_list;
 
-	(void) fts_close(fts);
+	(void)fts_close(fts);
 	return 0;
 
 cleanup:
 	rc = errno;
-	(void) fts_close(fts);
+	(void)fts_close(fts);
 	errno = rc;
 
 	if (dir_xattr_list) {

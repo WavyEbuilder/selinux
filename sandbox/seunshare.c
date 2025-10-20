@@ -21,39 +21,41 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <cap-ng.h>
-#include <getopt.h>		/* for getopt_long() form of getopt() */
+#include <getopt.h> /* for getopt_long() form of getopt() */
 #include <limits.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
 
 #include <selinux/selinux.h>
-#include <selinux/context.h>	/* for context-mangling functions */
+#include <selinux/context.h> /* for context-mangling functions */
 #include <dirent.h>
 
 #ifdef USE_NLS
-#include <locale.h>		/* for setlocale() */
-#include <libintl.h>		/* for gettext() */
-#define _(msgid) gettext (msgid)
+#include <locale.h> /* for setlocale() */
+#include <libintl.h> /* for gettext() */
+#define _(msgid) gettext(msgid)
 #else
 #define _(msgid) (msgid)
 #endif
 
 #ifndef MS_REC
-#define MS_REC 1<<14
+#define MS_REC 1 << 14
 #endif
 
 #ifndef MS_SLAVE
-#define MS_SLAVE 1<<19
+#define MS_SLAVE 1 << 19
 #endif
 
 #ifndef PACKAGE
-#define PACKAGE "policycoreutils"	/* the name of this package lang translation */
+#define PACKAGE \
+	"policycoreutils" /* the name of this package lang translation */
 #endif
 
 #define BUF_SIZE 1024
 #define DEFAULT_PATH "/usr/bin:/bin"
-#define USAGE_STRING _("USAGE: seunshare [ -v ] [ -C ] [ -k ] [ -t tmpdir ] [ -h homedir ] \
+#define USAGE_STRING \
+	_("USAGE: seunshare [ -v ] [ -C ] [ -k ] [ -t tmpdir ] [ -h homedir ] \
 [ -r runuserdir ] [ -P pipewiresocket ] [ -W waylandsocket ] [ -Z CONTEXT ] -- executable [args] ")
 
 static int verbose = 0;
@@ -91,8 +93,10 @@ static int drop_privs(uid_t uid)
 /**
  * If the user sends a siginto to seunshare, kill the child's session
  */
-static void handler(int sig) {
-	if (child > 0) kill(-child,sig);
+static void handler(int sig)
+{
+	if (child > 0)
+		kill(-child, sig);
 }
 
 /**
@@ -124,22 +128,24 @@ static int set_signal_handles(void)
 	return 0;
 }
 
-#define status_to_retval(status,retval) do { \
-	if ((status) == -1) \
-		retval = -1; \
-	else if (WIFEXITED((status))) \
-		retval = WEXITSTATUS((status)); \
-	else if (WIFSIGNALED((status))) \
-		retval = 128 + WTERMSIG((status)); \
-	else \
-		retval = -1; \
-	} while(0)
+#define status_to_retval(status, retval)                   \
+	do {                                               \
+		if ((status) == -1)                        \
+			retval = -1;                       \
+		else if (WIFEXITED((status)))              \
+			retval = WEXITSTATUS((status));    \
+		else if (WIFSIGNALED((status)))            \
+			retval = 128 + WTERMSIG((status)); \
+		else                                       \
+			retval = -1;                       \
+	} while (0)
 
 /**
  * Spawn external command using system() with dropped privileges.
  * TODO: avoid system() and use exec*() instead
  */
-static int spawn_command(const char *cmd, uid_t uid){
+static int spawn_command(const char *cmd, uid_t uid)
+{
 	int childpid;
 	int status = -1;
 
@@ -153,7 +159,8 @@ static int spawn_command(const char *cmd, uid_t uid){
 	}
 
 	if (childpid == 0) {
-		if (drop_privs(uid) != 0) exit(-1);
+		if (drop_privs(uid) != 0)
+			exit(-1);
 
 		status = system(cmd);
 		status_to_retval(status, status);
@@ -169,31 +176,37 @@ static int spawn_command(const char *cmd, uid_t uid){
  * Check file/directory ownership, struct stat * must be passed to the
  * functions.
  */
-static int check_owner_uid(uid_t uid, const char *file, struct stat *st) {
+static int check_owner_uid(uid_t uid, const char *file, struct stat *st)
+{
 	if (S_ISLNK(st->st_mode)) {
-		fprintf(stderr, _("Error: %s must not be a symbolic link\n"), file);
+		fprintf(stderr, _("Error: %s must not be a symbolic link\n"),
+			file);
 		return -1;
 	}
 	if (st->st_uid != uid) {
-		fprintf(stderr, _("Error: %s not owned by UID %d\n"), file, uid);
+		fprintf(stderr, _("Error: %s not owned by UID %d\n"), file,
+			uid);
 		return -1;
 	}
 	return 0;
 }
 
-static int check_owner_gid(gid_t gid, const char *file, struct stat *st) {
+static int check_owner_gid(gid_t gid, const char *file, struct stat *st)
+{
 	if (S_ISLNK(st->st_mode)) {
-		fprintf(stderr, _("Error: %s must not be a symbolic link\n"), file);
+		fprintf(stderr, _("Error: %s must not be a symbolic link\n"),
+			file);
 		return -1;
 	}
 	if (st->st_gid != gid) {
-		fprintf(stderr, _("Error: %s not owned by GID %d\n"), file, gid);
+		fprintf(stderr, _("Error: %s not owned by GID %d\n"), file,
+			gid);
 		return -1;
 	}
 	return 0;
 }
 
-#define equal_stats(one,two) \
+#define equal_stats(one, two)                                                \
 	((one)->st_dev == (two)->st_dev && (one)->st_ino == (two)->st_ino && \
 	 (one)->st_uid == (two)->st_uid && (one)->st_gid == (two)->st_gid && \
 	 (one)->st_mode == (two)->st_mode)
@@ -203,21 +216,28 @@ static int check_owner_gid(gid_t gid, const char *file, struct stat *st) {
  * compare with previously saved info to detect replaced directories.
  * Note: This function does not perform owner checks.
  */
-static int verify_directory(const char *dir, struct stat *st_in, struct stat *st_out) {
+static int verify_directory(const char *dir, struct stat *st_in,
+			    struct stat *st_out)
+{
 	struct stat sb;
 
-	if (st_out == NULL) st_out = &sb;
+	if (st_out == NULL)
+		st_out = &sb;
 
 	if (lstat(dir, st_out) == -1) {
-		fprintf(stderr, _("Failed to stat %s: %s\n"), dir, strerror(errno));
+		fprintf(stderr, _("Failed to stat %s: %s\n"), dir,
+			strerror(errno));
 		return -1;
 	}
-	if (! S_ISDIR(st_out->st_mode)) {
-		fprintf(stderr, _("Error: %s is not a directory: %s\n"), dir, strerror(errno));
+	if (!S_ISDIR(st_out->st_mode)) {
+		fprintf(stderr, _("Error: %s is not a directory: %s\n"), dir,
+			strerror(errno));
 		return -1;
 	}
 	if (st_in && !equal_stats(st_in, st_out)) {
-		fprintf(stderr, _("Error: %s was replaced by a different directory\n"), dir);
+		fprintf(stderr,
+			_("Error: %s was replaced by a different directory\n"),
+			dir);
 		return -1;
 	}
 
@@ -254,7 +274,8 @@ static int verify_shell(const char *shell_name)
 /**
  * Mount directory and check that we mounted the right directory.
  */
-static int seunshare_mount(const char *src, const char *dst, struct stat *src_st)
+static int seunshare_mount(const char *src, const char *dst,
+			   struct stat *src_st)
 {
 	int flags = 0;
 	int is_tmp = 0;
@@ -273,26 +294,30 @@ static int seunshare_mount(const char *src, const char *dst, struct stat *src_st
 
 	/* mount directory */
 	if (mount(src, dst, NULL, MS_BIND | flags, NULL) < 0) {
-		fprintf(stderr, _("Failed to mount %s on %s: %s\n"), src, dst, strerror(errno));
+		fprintf(stderr, _("Failed to mount %s on %s: %s\n"), src, dst,
+			strerror(errno));
 		return -1;
 	}
 
 	/* verify whether we mounted what we expected to mount */
-	if (verify_directory(dst, src_st, NULL) < 0) return -1;
+	if (verify_directory(dst, src_st, NULL) < 0)
+		return -1;
 
 	/* bind mount /tmp on /var/tmp too */
 	if (is_tmp) {
 		if (verbose)
 			printf(_("Mounting /tmp on /var/tmp\n"));
 
-		if (mount("/tmp", "/var/tmp",  NULL, MS_BIND | flags, NULL) < 0) {
-			fprintf(stderr, _("Failed to mount /tmp on /var/tmp: %s\n"), strerror(errno));
+		if (mount("/tmp", "/var/tmp", NULL, MS_BIND | flags, NULL) <
+		    0) {
+			fprintf(stderr,
+				_("Failed to mount /tmp on /var/tmp: %s\n"),
+				strerror(errno));
 			return -1;
 		}
 	}
 
 	return 0;
-
 }
 
 /**
@@ -306,43 +331,48 @@ static int seunshare_mount_file(const char *src, const char *dst)
 		printf(_("Mounting %s on %s\n"), src, dst);
 
 	if (access(dst, F_OK) == -1) {
-		 FILE *fptr;
-         fptr = fopen(dst, "w");
-		 fclose(fptr);
+		FILE *fptr;
+		fptr = fopen(dst, "w");
+		fclose(fptr);
 	}
 	/* mount file */
 	if (mount(src, dst, NULL, MS_BIND | flags, NULL) < 0) {
-		fprintf(stderr, _("Failed to mount %s on %s: %s\n"), src, dst, strerror(errno));
+		fprintf(stderr, _("Failed to mount %s on %s: %s\n"), src, dst,
+			strerror(errno));
 		return -1;
 	}
 
 	return 0;
-
 }
 
 /*
    If path is empty or ends with  "/." or "/.. return -1 else return 0;
  */
-static int bad_path(const char *path) {
+static int bad_path(const char *path)
+{
 	const char *ptr;
 	ptr = path;
-	while (*ptr) ptr++;
-	if (ptr == path) return -1; // ptr null
+	while (*ptr)
+		ptr++;
+	if (ptr == path)
+		return -1; // ptr null
 	ptr--;
-	if (ptr != path && *ptr  == '.') {
+	if (ptr != path && *ptr == '.') {
 		ptr--;
-		if (*ptr  == '/') return -1; // path ends in /.
-		if (*ptr  == '.') {
+		if (*ptr == '/')
+			return -1; // path ends in /.
+		if (*ptr == '.') {
 			if (ptr != path) {
 				ptr--;
-				if (*ptr  == '/') return -1; // path ends in /..
+				if (*ptr == '/')
+					return -1; // path ends in /..
 			}
 		}
 	}
 	return 0;
 }
 
-static int rsynccmd(const char * src, const char *dst, char **cmdbuf)
+static int rsynccmd(const char *src, const char *dst, char **cmdbuf)
 {
 	char *buf = NULL;
 	char *newbuf = NULL;
@@ -359,16 +389,19 @@ static int rsynccmd(const char * src, const char *dst, char **cmdbuf)
 	}
 
 	if (glob(buf, flags, NULL, &fglob) != 0) {
-		free(buf); buf = NULL;
+		free(buf);
+		buf = NULL;
 		return -1;
 	}
 
-	free(buf); buf = NULL;
+	free(buf);
+	buf = NULL;
 
-	for ( i=0; i < fglob.gl_pathc; i++) {
+	for (i = 0; i < fglob.gl_pathc; i++) {
 		const char *path = fglob.gl_pathv[i];
 
-		if (bad_path(path)) continue;
+		if (bad_path(path))
+			continue;
 
 		if (!buf) {
 			if (asprintf(&newbuf, "\'%s\'", path) == -1) {
@@ -382,24 +415,26 @@ static int rsynccmd(const char * src, const char *dst, char **cmdbuf)
 			}
 		}
 
-		free(buf); buf = newbuf;
+		free(buf);
+		buf = newbuf;
 		newbuf = NULL;
 	}
 
 	if (buf) {
-		if (asprintf(&newbuf, "/usr/bin/rsync -trlHDq %s '%s'", buf, dst) == -1) {
+		if (asprintf(&newbuf, "/usr/bin/rsync -trlHDq %s '%s'", buf,
+			     dst) == -1) {
 			fprintf(stderr, _("Out of memory\n"));
 			goto err;
 		}
-		*cmdbuf=newbuf;
-	}
-	else {
-		*cmdbuf=NULL;
+		*cmdbuf = newbuf;
+	} else {
+		*cmdbuf = NULL;
 	}
 	rc = 0;
 
 err:
-	free(buf); buf = NULL;
+	free(buf);
+	buf = NULL;
 	globfree(&fglob);
 	return rc;
 }
@@ -411,7 +446,8 @@ err:
  *         a non-root user: symbolic links to root paths (such as /root) will
  *         not be followed.
  */
-static bool rm_rf(int targetfd, const char *path) {
+static bool rm_rf(int targetfd, const char *path)
+{
 	struct stat statbuf;
 
 	if (fstatat(targetfd, path, &statbuf, AT_SYMLINK_NOFOLLOW) < 0) {
@@ -423,7 +459,8 @@ static bool rm_rf(int targetfd, const char *path) {
 	}
 
 	if (S_ISDIR(statbuf.st_mode)) {
-		const int newfd = openat(targetfd, path, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+		const int newfd = openat(targetfd, path,
+					 O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 		if (newfd < 0) {
 			perror("openat");
 			return false;
@@ -439,7 +476,8 @@ static bool rm_rf(int targetfd, const char *path) {
 		struct dirent *entry;
 		int rc = true;
 		while ((entry = readdir(dir)) != NULL) {
-			if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+			if (strcmp(entry->d_name, ".") == 0 ||
+			    strcmp(entry->d_name, "..") == 0) {
 				continue;
 			}
 
@@ -470,23 +508,28 @@ static bool rm_rf(int targetfd, const char *path) {
  * left to tmpwatch to finish incomplete cleanup.
  */
 static int cleanup_tmpdir(const char *tmpdir, const char *src,
-	struct passwd *pwd, int copy_content)
+			  struct passwd *pwd, int copy_content)
 {
 	char *cmdbuf = NULL;
 	int rc = 0;
 
 	/* rsync files back */
 	if (copy_content) {
-		if (asprintf(&cmdbuf, "/usr/bin/rsync --exclude=.X11-unix -utrlHDq --delete '%s/' '%s/'", tmpdir, src) == -1) {
+		if (asprintf(
+			    &cmdbuf,
+			    "/usr/bin/rsync --exclude=.X11-unix -utrlHDq --delete '%s/' '%s/'",
+			    tmpdir, src) == -1) {
 			fprintf(stderr, _("Out of memory\n"));
 			cmdbuf = NULL;
 			rc++;
 		}
 		if (cmdbuf && spawn_command(cmdbuf, pwd->pw_uid) != 0) {
-			fprintf(stderr, _("Failed to copy files from the runtime temporary directory\n"));
+			fprintf(stderr,
+				_("Failed to copy files from the runtime temporary directory\n"));
 			rc++;
 		}
-		free(cmdbuf); cmdbuf = NULL;
+		free(cmdbuf);
+		cmdbuf = NULL;
 	}
 
 	if ((uid_t)setfsuid(0) != 0) {
@@ -496,12 +539,15 @@ static int cleanup_tmpdir(const char *tmpdir, const char *src,
 
 	/* Recursively remove the runtime temp directory.  */
 	if (!rm_rf(AT_FDCWD, tmpdir)) {
-		fprintf(stderr, _("Failed to recursively remove directory %s\n"), tmpdir);
+		fprintf(stderr,
+			_("Failed to recursively remove directory %s\n"),
+			tmpdir);
 		rc++;
 	}
 
 	if ((uid_t)setfsuid(pwd->pw_uid) != 0) {
-		fprintf(stderr, _("unable to switch back to user after clearing tmp dir\n"));
+		fprintf(stderr,
+			_("unable to switch back to user after clearing tmp dir\n"));
 		rc++;
 	}
 
@@ -515,7 +561,8 @@ static int cleanup_tmpdir(const char *tmpdir, const char *src,
  * to clean it up.
  */
 static char *create_tmpdir(const char *src, struct stat *src_st,
-	struct stat *out_st, struct passwd *pwd, const char *execcon)
+			   struct stat *out_st, struct passwd *pwd,
+			   const char *execcon)
 {
 	char *tmpdir = NULL;
 	char *cmdbuf = NULL;
@@ -529,19 +576,25 @@ static char *create_tmpdir(const char *src, struct stat *src_st,
 			goto err;
 
 		if ((fd_s = open(src, O_RDONLY)) < 0) {
-			fprintf(stderr, _("Failed to open directory %s: %s\n"), src, strerror(errno));
+			fprintf(stderr, _("Failed to open directory %s: %s\n"),
+				src, strerror(errno));
 			goto err;
 		}
 		if (fstat(fd_s, &tmp_st) == -1) {
-			fprintf(stderr, _("Failed to stat directory %s: %s\n"), src, strerror(errno));
+			fprintf(stderr, _("Failed to stat directory %s: %s\n"),
+				src, strerror(errno));
 			goto err;
 		}
 		if (!equal_stats(src_st, &tmp_st)) {
-			fprintf(stderr, _("Error: %s was replaced by a different directory\n"), src);
+			fprintf(stderr,
+				_("Error: %s was replaced by a different directory\n"),
+				src);
 			goto err;
 		}
 		if (fgetfilecon(fd_s, &con) == -1) {
-			fprintf(stderr, _("Failed to get context of the directory %s: %s\n"), src, strerror(errno));
+			fprintf(stderr,
+				_("Failed to get context of the directory %s: %s\n"),
+				src, strerror(errno));
 			goto err;
 		}
 
@@ -556,7 +609,8 @@ static char *create_tmpdir(const char *src, struct stat *src_st,
 		goto err;
 	}
 	if (mkdtemp(tmpdir) == NULL) {
-		fprintf(stderr, _("Failed to create temporary directory: %s\n"), strerror(errno));
+		fprintf(stderr, _("Failed to create temporary directory: %s\n"),
+			strerror(errno));
 		goto err;
 	}
 
@@ -573,31 +627,39 @@ static char *create_tmpdir(const char *src, struct stat *src_st,
 
 	/* change permissions of the temporary directory */
 	if ((fd_t = open(tmpdir, O_RDONLY)) < 0) {
-		fprintf(stderr, _("Failed to open directory %s: %s\n"), tmpdir, strerror(errno));
+		fprintf(stderr, _("Failed to open directory %s: %s\n"), tmpdir,
+			strerror(errno));
 		goto err;
 	}
 	if (fstat(fd_t, &tmp_st) == -1) {
-		fprintf(stderr, _("Failed to stat directory %s: %s\n"), tmpdir, strerror(errno));
+		fprintf(stderr, _("Failed to stat directory %s: %s\n"), tmpdir,
+			strerror(errno));
 		goto err;
 	}
 	if (!equal_stats(out_st, &tmp_st)) {
-		fprintf(stderr, _("Error: %s was replaced by a different directory\n"), tmpdir);
+		fprintf(stderr,
+			_("Error: %s was replaced by a different directory\n"),
+			tmpdir);
 		goto err;
 	}
 	if (fchmod(fd_t, 01770) == -1) {
-		fprintf(stderr, _("Unable to change mode on %s: %s\n"), tmpdir, strerror(errno));
+		fprintf(stderr, _("Unable to change mode on %s: %s\n"), tmpdir,
+			strerror(errno));
 		goto err;
 	}
 	/* re-stat again to pick change mode */
 	if (fstat(fd_t, out_st) == -1) {
-		fprintf(stderr, _("Failed to stat directory %s: %s\n"), tmpdir, strerror(errno));
+		fprintf(stderr, _("Failed to stat directory %s: %s\n"), tmpdir,
+			strerror(errno));
 		goto err;
 	}
 
 	/* copy selinux context */
 	if (execcon) {
 		if (fsetfilecon(fd_t, con) == -1) {
-			fprintf(stderr, _("Failed to set context of the directory %s: %s\n"), tmpdir, strerror(errno));
+			fprintf(stderr,
+				_("Failed to set context of the directory %s: %s\n"),
+				tmpdir, strerror(errno));
 			goto err;
 		}
 	}
@@ -614,26 +676,31 @@ static char *create_tmpdir(const char *src, struct stat *src_st,
 		goto err;
 
 	if (cmdbuf && spawn_command(cmdbuf, pwd->pw_uid) != 0) {
-		fprintf(stderr, _("Failed to populate runtime temporary directory\n"));
+		fprintf(stderr,
+			_("Failed to populate runtime temporary directory\n"));
 		cleanup_tmpdir(tmpdir, src, pwd, 0);
 		goto err;
 	}
 
 	goto good;
 err:
-	free(tmpdir); tmpdir = NULL;
+	free(tmpdir);
+	tmpdir = NULL;
 good:
-	free(cmdbuf); cmdbuf = NULL;
-	freecon(con); con = NULL;
-	if (fd_t >= 0) close(fd_t);
-	if (fd_s >= 0) close(fd_s);
+	free(cmdbuf);
+	cmdbuf = NULL;
+	freecon(con);
+	con = NULL;
+	if (fd_t >= 0)
+		close(fd_t);
+	if (fd_s >= 0)
+		close(fd_s);
 	return tmpdir;
 }
 
 #define PROC_BASE "/proc"
 
-static int
-killall (const char *execcon)
+static int killall(const char *execcon)
 {
 	DIR *dir;
 	char *scon;
@@ -647,7 +714,7 @@ killall (const char *execcon)
 		return -1;
 	}
 	max_pids = 256;
-	pid_table = malloc(max_pids * sizeof (pid_t));
+	pid_table = malloc(max_pids * sizeof(pid_t));
 	if (!pid_table) {
 		(void)closedir(dir);
 		return -1;
@@ -657,12 +724,13 @@ killall (const char *execcon)
 	con = context_new(execcon);
 	const char *mcs = context_range_get(con);
 	printf("mcs=%s\n", mcs);
-	while ((de = readdir (dir)) != NULL) {
+	while ((de = readdir(dir)) != NULL) {
 		if (!(pid = (pid_t)atoi(de->d_name)) || pid == self)
 			continue;
 
 		if (pids == max_pids) {
-			pid_t *new_pid_table = realloc(pid_table, 2*pids*sizeof(pid_t));
+			pid_t *new_pid_table =
+				realloc(pid_table, 2 * pids * sizeof(pid_t));
 			if (!new_pid_table) {
 				free(pid_table);
 				(void)closedir(dir);
@@ -680,7 +748,6 @@ killall (const char *execcon)
 		pid_t id = pid_table[i];
 
 		if (getpidcon(id, &scon) == 0) {
-
 			context_t pidcon = context_new(scon);
 			/* Attempt to kill remaining processes */
 			if (strcmp(context_range_get(pidcon), mcs) == 0)
@@ -697,20 +764,22 @@ killall (const char *execcon)
 	return running;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 	int status = -1;
 	const char *execcon = NULL;
 	const char *pipewire_socket = NULL;
 	const char *wayland_display = NULL;
 
-	int clflag;		/* holds codes for command line flags */
+	int clflag; /* holds codes for command line flags */
 	int kill_all = 0;
 
-	char *homedir_s = NULL;	/* homedir spec'd by user in argv[] */
-	char *tmpdir_s = NULL;	/* tmpdir spec'd by user in argv[] */
-	char *tmpdir_r = NULL;	/* tmpdir created by seunshare */
-	char *runuserdir_s = NULL;	/* /var/run/user/UID spec'd by user in argv[] */
-	char *runuserdir_r = NULL;	/* /var/run/user/UID created by seunshare */
+	char *homedir_s = NULL; /* homedir spec'd by user in argv[] */
+	char *tmpdir_s = NULL; /* tmpdir spec'd by user in argv[] */
+	char *tmpdir_r = NULL; /* tmpdir created by seunshare */
+	char *runuserdir_s =
+		NULL; /* /var/run/user/UID spec'd by user in argv[] */
+	char *runuserdir_r = NULL; /* /var/run/user/UID created by seunshare */
 
 	struct stat st_curhomedir;
 	struct stat st_homedir;
@@ -720,20 +789,15 @@ int main(int argc, char **argv) {
 	struct stat st_runuserdir_r;
 
 	const struct option long_options[] = {
-		{"homedir", 1, 0, 'h'},
-		{"tmpdir", 1, 0, 't'},
-		{"runuserdir", 1, 0, 'r'},
-		{"kill", 1, 0, 'k'},
-		{"verbose", 1, 0, 'v'},
-		{"context", 1, 0, 'Z'},
-		{"capabilities", 1, 0, 'C'},
-		{"wayland", 1, 0, 'W'},
-		{"pipewire", 1, 0, 'P'},
-		{NULL, 0, 0, 0}
+		{ "homedir", 1, 0, 'h' },      { "tmpdir", 1, 0, 't' },
+		{ "runuserdir", 1, 0, 'r' },   { "kill", 1, 0, 'k' },
+		{ "verbose", 1, 0, 'v' },      { "context", 1, 0, 'Z' },
+		{ "capabilities", 1, 0, 'C' }, { "wayland", 1, 0, 'W' },
+		{ "pipewire", 1, 0, 'P' },     { NULL, 0, 0, 0 }
 	};
 
 	uid_t uid = getuid();
-/*
+	/*
 	if (!uid) {
 		fprintf(stderr, _("Must not be root"));
 		return -1;
@@ -746,7 +810,7 @@ int main(int argc, char **argv) {
 	textdomain(PACKAGE);
 #endif
 
-	struct passwd *pwd=getpwuid(uid);
+	struct passwd *pwd = getpwuid(uid);
 	if (!pwd) {
 		perror(_("getpwduid failed"));
 		return -1;
@@ -758,7 +822,8 @@ int main(int argc, char **argv) {
 	}
 
 	while (1) {
-		clflag = getopt_long(argc, argv, "Ccvh:r:t:W:Z:", long_options, NULL);
+		clflag = getopt_long(argc, argv, "Ccvh:r:t:W:Z:", long_options,
+				     NULL);
 		if (clflag == -1)
 			break;
 
@@ -796,18 +861,22 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (! homedir_s && ! tmpdir_s) {
-		fprintf(stderr, _("Error: tmpdir and/or homedir required\n %s\n"), USAGE_STRING);
+	if (!homedir_s && !tmpdir_s) {
+		fprintf(stderr,
+			_("Error: tmpdir and/or homedir required\n %s\n"),
+			USAGE_STRING);
 		return -1;
 	}
 
 	if (argc - optind < 1) {
-		fprintf(stderr, _("Error: executable required\n %s\n"), USAGE_STRING);
+		fprintf(stderr, _("Error: executable required\n %s\n"),
+			USAGE_STRING);
 		return -1;
 	}
 
 	if (execcon && is_selinux_enabled() != 1) {
-		fprintf(stderr, _("Error: execution context specified, but SELinux is not enabled\n"));
+		fprintf(stderr,
+			_("Error: execution context specified, but SELinux is not enabled\n"));
 		return -1;
 	}
 
@@ -818,35 +887,42 @@ int main(int argc, char **argv) {
 	/* Changing fsuid is usually required when user-specified directory is
 	 * on an NFS mount.  It's also desired to avoid leaking info about
 	 * existence of the files not accessible to the user. */
-	if (((uid_t)setfsuid(uid) != 0)   && (errno != 0)) {
+	if (((uid_t)setfsuid(uid) != 0) && (errno != 0)) {
 		fprintf(stderr, _("Error: unable to setfsuid %m\n"));
 
 		return -1;
 	}
 
 	/* verify homedir and tmpdir */
-	if (homedir_s && (
-		verify_directory(homedir_s, NULL, &st_homedir) < 0 ||
-		check_owner_uid(uid, homedir_s, &st_homedir))) return -1;
-	if (tmpdir_s && (
-		verify_directory(tmpdir_s, NULL, &st_tmpdir_s) < 0 ||
-		check_owner_uid(uid, tmpdir_s, &st_tmpdir_s))) return -1;
-	if (runuserdir_s && (
-		verify_directory(runuserdir_s, NULL, &st_runuserdir_s) < 0 ||
-		check_owner_uid(uid, runuserdir_s, &st_runuserdir_s))) return -1;
+	if (homedir_s && (verify_directory(homedir_s, NULL, &st_homedir) < 0 ||
+			  check_owner_uid(uid, homedir_s, &st_homedir)))
+		return -1;
+	if (tmpdir_s && (verify_directory(tmpdir_s, NULL, &st_tmpdir_s) < 0 ||
+			 check_owner_uid(uid, tmpdir_s, &st_tmpdir_s)))
+		return -1;
+	if (runuserdir_s &&
+	    (verify_directory(runuserdir_s, NULL, &st_runuserdir_s) < 0 ||
+	     check_owner_uid(uid, runuserdir_s, &st_runuserdir_s)))
+		return -1;
 
-	if ((uid_t)setfsuid(0) != uid) return -1;
+	if ((uid_t)setfsuid(0) != uid)
+		return -1;
 
 	/* create runtime tmpdir */
-	if (tmpdir_s && (tmpdir_r = create_tmpdir(tmpdir_s, &st_tmpdir_s,
-						  &st_tmpdir_r, pwd, execcon)) == NULL) {
-		fprintf(stderr, _("Failed to create runtime temporary directory\n"));
+	if (tmpdir_s &&
+	    (tmpdir_r = create_tmpdir(tmpdir_s, &st_tmpdir_s, &st_tmpdir_r, pwd,
+				      execcon)) == NULL) {
+		fprintf(stderr,
+			_("Failed to create runtime temporary directory\n"));
 		return -1;
 	}
 	/* create runtime runuserdir */
-	if (runuserdir_s && (runuserdir_r = create_tmpdir(runuserdir_s, &st_runuserdir_s,
-						  &st_runuserdir_r, pwd, execcon)) == NULL) {
-		fprintf(stderr, _("Failed to create runtime $XDG_RUNTIME_DIR directory\n"));
+	if (runuserdir_s &&
+	    (runuserdir_r = create_tmpdir(runuserdir_s, &st_runuserdir_s,
+					  &st_runuserdir_r, pwd, execcon)) ==
+		    NULL) {
+		fprintf(stderr,
+			_("Failed to create runtime $XDG_RUNTIME_DIR directory\n"));
 		return -1;
 	}
 
@@ -869,7 +945,6 @@ int main(int argc, char **argv) {
 		char *pipewire_path_s = NULL; /* /tmp/.../pipewire-0 */
 		char *pipewire_path = NULL; /* /run/user/UID/pipewire-0 */
 
-
 		if (unshare(CLONE_NEWNS) < 0) {
 			perror(_("Failed to unshare"));
 			goto childerr;
@@ -877,16 +952,18 @@ int main(int argc, char **argv) {
 
 		/* Remount / as SLAVE so that nothing mounted in the namespace 
 		   shows up in the parent */
-		if (mount("none", "/", NULL, MS_SLAVE | MS_REC , NULL) < 0) {
+		if (mount("none", "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
 			perror(_("Failed to make / a SLAVE mountpoint\n"));
 			goto childerr;
 		}
 
 		/* assume fsuid==ruid after this point */
-		if ((uid_t)setfsuid(uid) != 0) goto childerr;
+		if ((uid_t)setfsuid(uid) != 0)
+			goto childerr;
 
-		resolved_path = realpath(pwd->pw_dir,NULL);
-		if (! resolved_path) goto childerr;
+		resolved_path = realpath(pwd->pw_dir, NULL);
+		if (!resolved_path)
+			goto childerr;
 
 		if (verify_directory(resolved_path, NULL, &st_curhomedir) < 0)
 			goto childerr;
@@ -906,7 +983,8 @@ int main(int argc, char **argv) {
 		}
 
 		if ((XDG_SESSION_TYPE = getenv("XDG_SESSION_TYPE")) != NULL) {
-			if ((XDG_SESSION_TYPE = strdup(XDG_SESSION_TYPE)) == NULL) {
+			if ((XDG_SESSION_TYPE = strdup(XDG_SESSION_TYPE)) ==
+			    NULL) {
 				perror(_("Out of memory"));
 				goto childerr;
 			}
@@ -914,54 +992,70 @@ int main(int argc, char **argv) {
 
 		if (runuserdir_s && (wayland_display || pipewire_socket)) {
 			if (wayland_display) {
-				if (asprintf(&wayland_path_s, "%s/%s", runuserdir_s, wayland_display) == -1) {
+				if (asprintf(&wayland_path_s, "%s/%s",
+					     runuserdir_s,
+					     wayland_display) == -1) {
 					perror(_("Out of memory"));
 					goto childerr;
 				}
 
-				if (asprintf(&wayland_path, "%s/%s", RUNTIME_DIR, wayland_display) == -1) {
+				if (asprintf(&wayland_path, "%s/%s",
+					     RUNTIME_DIR,
+					     wayland_display) == -1) {
 					perror(_("Out of memory"));
 					goto childerr;
 				}
 
-				if (seunshare_mount_file(wayland_path, wayland_path_s) == -1)
+				if (seunshare_mount_file(wayland_path,
+							 wayland_path_s) == -1)
 					goto childerr;
 			}
 
 			if (pipewire_socket) {
-				if (asprintf(&pipewire_path_s, "%s/%s", runuserdir_s, pipewire_socket) == -1) {
+				if (asprintf(&pipewire_path_s, "%s/%s",
+					     runuserdir_s,
+					     pipewire_socket) == -1) {
 					perror(_("Out of memory"));
 					goto childerr;
 				}
-				if (asprintf(&pipewire_path, "%s/pipewire-0", RUNTIME_DIR) == -1) {
+				if (asprintf(&pipewire_path, "%s/pipewire-0",
+					     RUNTIME_DIR) == -1) {
 					perror(_("Out of memory"));
 					goto childerr;
 				}
-				seunshare_mount_file(pipewire_path, pipewire_path_s);
+				seunshare_mount_file(pipewire_path,
+						     pipewire_path_s);
 			}
 		}
 
 		/* mount homedir, runuserdir and tmpdir, in this order */
-		if (runuserdir_s &&	seunshare_mount(runuserdir_s, RUNTIME_DIR,
-			&st_runuserdir_s) != 0) goto childerr;
-		if (homedir_s && seunshare_mount(homedir_s, resolved_path,
-			&st_homedir) != 0) goto childerr;
-		if (tmpdir_s &&	seunshare_mount(tmpdir_r, "/tmp",
-			&st_tmpdir_r) != 0) goto childerr;
+		if (runuserdir_s && seunshare_mount(runuserdir_s, RUNTIME_DIR,
+						    &st_runuserdir_s) != 0)
+			goto childerr;
+		if (homedir_s &&
+		    seunshare_mount(homedir_s, resolved_path, &st_homedir) != 0)
+			goto childerr;
+		if (tmpdir_s &&
+		    seunshare_mount(tmpdir_r, "/tmp", &st_tmpdir_r) != 0)
+			goto childerr;
 
-		if (drop_privs(uid) != 0) goto childerr;
+		if (drop_privs(uid) != 0)
+			goto childerr;
 
 		/* construct a new environment */
 
-		if (XDG_SESSION_TYPE && strcmp(XDG_SESSION_TYPE, "wayland") == 0) {
-			if (wayland_display == NULL && (wayland_display = getenv("WAYLAND_DISPLAY")) != NULL) {
-				if ((wayland_display = strdup(wayland_display)) == NULL) {
+		if (XDG_SESSION_TYPE &&
+		    strcmp(XDG_SESSION_TYPE, "wayland") == 0) {
+			if (wayland_display == NULL &&
+			    (wayland_display = getenv("WAYLAND_DISPLAY")) !=
+				    NULL) {
+				if ((wayland_display =
+					     strdup(wayland_display)) == NULL) {
 					perror(_("Out of memory"));
 					goto childerr;
 				}
 			}
-		}
-		else {
+		} else {
 			if ((display = getenv("DISPLAY")) != NULL) {
 				if ((display = strdup(display)) == NULL) {
 					perror(_("Out of memory"));
@@ -1019,14 +1113,17 @@ int main(int argc, char **argv) {
 			if (setcon(execcon) != 0) {
 				/* failed; fall back to setexeccon */
 				if (setexeccon(execcon) != 0) {
-					fprintf(stderr, _("Could not set exec context to %s. %s\n"), execcon, strerror(errno));
+					fprintf(stderr,
+						_("Could not set exec context to %s. %s\n"),
+						execcon, strerror(errno));
 					goto childerr;
 				}
 			}
 		}
 
 		execv(argv[optind], argv + optind);
-		fprintf(stderr, _("Failed to execute command %s: %s\n"), argv[optind], strerror(errno));
+		fprintf(stderr, _("Failed to execute command %s: %s\n"),
+			argv[optind], strerror(errno));
 childerr:
 		free(resolved_path);
 		free(wayland_path);
@@ -1047,12 +1144,13 @@ childerr:
 	status_to_retval(status, status);
 
 	/* Make sure all child processes exit */
-	kill(-child,SIGTERM);
+	kill(-child, SIGTERM);
 
 	if (execcon && kill_all)
 		killall(execcon);
 
-	if (tmpdir_r) cleanup_tmpdir(tmpdir_r, tmpdir_s, pwd, 1);
+	if (tmpdir_r)
+		cleanup_tmpdir(tmpdir_r, tmpdir_s, pwd, 1);
 
 err:
 	free(tmpdir_r);
