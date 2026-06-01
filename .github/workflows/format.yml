@@ -6,7 +6,7 @@ on:
       - clang-format
   pull_request:
     branches:
-      - main
+      - clang-format
 
 jobs:
   check-format:
