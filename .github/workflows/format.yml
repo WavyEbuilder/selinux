@@ -3,7 +3,7 @@ name: Check format
 on:
   push:
     branches:
-      - main
+      - clang-format
   pull_request:
     branches:
       - main
