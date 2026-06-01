@@ -12,7 +12,7 @@ jobs:
   check-format:
     runs-on: ubuntu-latest
     container:
-      image: gentoo:stage3
+      image: gentoo/stage3
     steps:
       - uses: actions/checkout@v4
       - name: Check format
