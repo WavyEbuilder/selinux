@@ -10,7 +10,9 @@ on:
 
 jobs:
   check-format:
-    runs-on: fedora
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
     steps:
       - uses: actions/checkout@v4
       - name: Check format
